@@ -1,17 +1,60 @@
-import React, { useState } from 'react';
-import { StyleSheet, TextInput, View, Button } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  StyleSheet,
+  TextInput,
+  Text,
+  View,
+  Button,
+  FlatList,
+  TouchableOpacity,
+  Alert,
+} from 'react-native';
 import ENV from './env';
 import * as firebase from 'firebase';
 
-if (firebase.apps.lengh) {
+if (firebase.apps.lengh == 0) {
   firebase.initializeApp(ENV);
 }
 
+const db = firebase.firestore();
+
 export default function App() {
   const [lembrete, setLembrete] = useState('');
+  const [lembretes, setLembretes] = useState([]);
 
+  useEffect(() => {
+    db.collection('lembretes').onSnapshot((snapshot) => {
+      let aux = [];
+      snapshot.forEach((doc) => {
+        aux.push({
+          data: doc.data().data,
+          texto: doc.data().texto,
+          chave: doc.id,
+        });
+      });
+      setLembretes(aux);
+    });
+  }, []);
   const capturarLembrete = (lembrete) => {
     setLembrete(lembrete);
+  };
+
+  const adicionarLembrete = () => {
+    db.collection('lembretes').add({
+      texto: lembrete,
+      data: new Date(),
+    });
+    setLembrete('');
+  };
+
+  const removerLembrete = (chave) => {
+    Alert.alert('Apagar?', 'Quer mesmo apagar o lembrete?', [
+      { text: 'Cancelar' },
+      {
+        text: 'Sim',
+        onPress: () => db.collection('lembretes').doc(chave).delete(),
+      },
+    ]);
   };
 
   return (
@@ -23,8 +66,22 @@ export default function App() {
         value={lembrete}
       />
       <View style={styles.botao}>
-        <Button title='Ok' />
+        <Button title='Ok' onPress={adicionarLembrete} />
       </View>
+      <FlatList
+        style={{ marginTop: 8 }}
+        data={lembretes}
+        renderItem={(lembrete) => (
+          <TouchableOpacity
+            onLongPress={() => removerLembrete(lembrete.item.chave)}
+          >
+            <View style={styles.itemNaLista}>
+              <Text>{lembrete.item.texto}</Text>
+              <Text>{lembrete.item.data.toDate().toLocaleString()}</Text>
+            </View>
+          </TouchableOpacity>
+        )}
+      />
     </View>
   );
 }
@@ -46,5 +103,13 @@ const styles = StyleSheet.create({
   },
   botao: {
     width: '80%',
+  },
+  itemNaLista: {
+    marginBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#CCC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
   },
 });
